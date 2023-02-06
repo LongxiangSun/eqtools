@@ -158,7 +158,6 @@ def asvisco_interg_parallel(rest, pscmpt, dispENU, alpha, tau, k):
     as_avdisp = np.array(as_avdisp)
     return k, as_avdisp
 
-#-------------------------------------------------------------------------------------#
 
 def calAS_AV(pscmpts, obsdate, eqdate, alpha, tau, unit='m', intp_tunit='Y', onlyAV=True, mcpu=4):
     '''
@@ -227,6 +226,7 @@ def calAS_AV(pscmpts, obsdate, eqdate, alpha, tau, unit='m', intp_tunit='Y', onl
 
     # All Done
     return obsdata
+#-------------------------------------------------------------------------------------#
 
 
 if __name__ == '__main__':
