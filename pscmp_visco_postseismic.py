@@ -37,8 +37,18 @@ def cv_cum(t, tobs, disp):
 @jit(nopython=True, cache=True)
 def as_cum(t, disp0, tau_as=0.25, alpha=1.0):
     '''
-    根据指数衰减函数，计算余滑累积导致的
-    disp0: 由同震导致的库仑应力计算的同震/余滑形变
+    The deformation due cumulative afterslip is calculated according to the exponential decay function.
+    
+    Args    :
+        * t         : Observation time
+        * disp0     : Elastic deformation calculated by Coulomb stress due to coseismic slip
+
+    Kwargs  :
+        * tau_as    : characteristic time
+        * alpha     : scaling factor for the coulomb stress distribution in each patch
+
+    Return  :
+        * AS        : Deformation due to afterslip
     '''
     return alpha*disp0*(1-np.exp(-t/tau_as))
 
@@ -46,7 +56,15 @@ def as_cum(t, disp0, tau_as=0.25, alpha=1.0):
 @jit(nopython=True, cache=True)
 def visco_decay(t, tobs, disp):
     '''
-    根据黏弹性时序格林函数，插值出待求时刻的形变
+    According to the Green's function of viscoelastic time series, the deformation at the desired time is interpolated
+
+    Args   :
+        * t         : Calculation time node of viscoelastic relaxation
+        * tobs      : Observation time
+        * disp      : the viscoelaxation relaxation at the time nodes corresponding to "t"
+    
+    Return :
+        * DispAtIntptime
     '''
     return np.interp(t, tobs, disp)
 
@@ -54,8 +72,7 @@ def visco_decay(t, tobs, disp):
 @jit(nopython=True, cache=True)
 def delta_v(t, tau_as=0.25, alpha=1.0):
     '''
-    下面在magnitude: 3的位置乘以一个1/tau_as才能使得最终累积形变达到magnitude的量级，否则最终量级在mag/tau_as级别;
-    因此，实际上是tau和mag共同控制了最终可能造成的形变量级
+    Calculating the cumulative afterslip at time t
     '''
     return alpha/tau_as*np.exp(-t/tau_as)
 
@@ -63,7 +80,7 @@ def delta_v(t, tau_as=0.25, alpha=1.0):
 @jit(nopython=True, cache=True)
 def v_func(t, tobs, disp, tau_as, alpha, T=5):
     '''
-    定义余滑驱动的黏弹性松弛，在时刻T对应的形变
+    Kernel function for viscoelastic relaxation due to afterslip 
     '''
     return delta_v(t, tau_as, alpha)*visco_decay(T-t, tobs, disp)
 
