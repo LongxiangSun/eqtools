@@ -2,7 +2,11 @@
 
 ---
 
-**A set of tools related to the forward and inverse seismic cycles**
+**A set of tools related to the forward and inverse *earthquake cycle*.**
+
+---
+
+
 
 ## Postseismic
 
