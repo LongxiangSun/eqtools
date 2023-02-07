@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from pandas import Timedelta as pddt
 
 
 def gents_pscmp(tobs, T, diffint=5, cycles=10):
