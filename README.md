@@ -18,3 +18,6 @@
 ## Interseismic
 
 - pscmp_visco_interseismic.py
+  - Calculating velocity related to ***earthquake cycle***
+- Main function
+  - ***calviscoGfromPscmp***(pscmpts, T=None, diffint=None, unit='m')
