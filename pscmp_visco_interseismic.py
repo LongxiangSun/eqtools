@@ -1,4 +1,6 @@
 '''
+Simple calculating codes about Earthquake cycle
+
 Written by Kefeng He, January 2023
 '''
 

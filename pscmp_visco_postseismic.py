@@ -1,4 +1,6 @@
 '''
+Simple calculating codes about Combined model of viscoelastic relaxation and stress-driven afterslip
+
 Written by Kefeng He, January 2023
 '''
 

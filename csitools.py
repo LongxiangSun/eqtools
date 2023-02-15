@@ -1,3 +1,7 @@
+'''
+Written by Kefeng He, January 2023
+'''
+
 import numpy as np
 import pyproj as pp
 from csi import TriangularPatches as csitrifault
