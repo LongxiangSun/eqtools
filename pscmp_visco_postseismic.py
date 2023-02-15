@@ -1,4 +1,6 @@
-# coding: utf-8
+'''
+Written by Kefeng He, January 2023
+'''
 
 import pandas as pd
 import numpy as np
