@@ -98,18 +98,19 @@ def do_integrate(func, ti, args):
 
 def calAS_AV_dir(pscmpts, obsdt, alpha, tau, tunit='D', unit='m', direction='E', onlyAV=True):
     '''
-    单站的余滑导致的余滑和余滑导致的黏弹性松弛的计算
+    Calculation of afterslip due to afterslip and viscoelastic relaxation due to afterslip for a single station
+
     Args     :
-        * pscmpts         : 源自extract_pscmp_ts函数, 重新提取到单站上的数据
+        * pscmpts         : Extract from extract_pscmp_ts function, Re-extract the data to the single site
                             aspscmpts = aspscmpts.loc[idx[:, loc], :]
-        * obsdt            : pd.Timedelta对象
-        * alpha           : 余滑尺度因子
-        * tau             : 余滑松弛因子
+        * obsdt            : pd.Timedelta object
+        * alpha           : factor scale of △CFS is used to calculate cumulative afterslip
+        * tau             : characteristic relaxation time of afterslip
     
     Kwargs   :
-        * tunit           : tau和pscmpts以及obst - eqdate的求取积分时的默认单位
-        * unit            : 欲求取的形变单位，源自extract_pscmp_ts时设置
-        * direction       : 欲求取的形变方向
+        * tunit           : The time unit of tau, pscmpts and obst - eqdate
+        * unit            : Disp unit used to match the unit in extract_pscmp_ts
+        * direction       : Disp direction, E, N or U
     
     Return   :
         * av_asdisp       : 
@@ -138,7 +139,18 @@ def calAS_AV_dir(pscmpts, obsdt, alpha, tau, tunit='D', unit='m', direction='E',
 
 def asvisco_interg_parallel(rest, pscmpt, dispENU, alpha, tau, k):
     '''
-    并行计算余滑导致的黏弹性松弛效应
+    The viscoelastic relaxation effect due to afterslip is calculated in parallel
+
+    Args    :
+        * rest        : Observation time series
+        * pscmpt      : Time nodes used in Pscmp to calculate the viscoelastic response
+        * dispENU     : m*3 array; m represent m time nodes used in pscmp, 3 is 3 dimension observation in ENU order
+        * alpha       : parameter for afterslip (scale factor)
+        * tau         : parameter for afterslip (characteristic relaxation time)
+        * k           : Index used to locate a specified site.
+    
+    Return  :
+        * k, as_avdisp: 
     '''
     dispE = dispENU[:, 0]
     dispN = dispENU[:, 1]
@@ -157,21 +169,22 @@ def asvisco_interg_parallel(rest, pscmpt, dispENU, alpha, tau, k):
 
 def calAS_AV(pscmpts, obsdate, eqdate, alpha, tau, unit='m', intp_tunit='Y', onlyAV=True, mcpu=4):
     '''
-    计算余滑导致的黏弹性松弛和余滑本身造成的累积形变
+    Calculation of viscoelastic relaxation due to afterslip and cumulative deformation due to afterslip itself
 
     Args    :
-        * pscmpts          : 累积余滑分布导致的黏弹性松弛时间函数，提取自pscmp/pylith
-                             ，此时应该用未在时间域上插值的pscmpts
-        * obsdate          : 观测时间序列. 需要插值的时间节点位置，默认为pd.Timestamp形式的时间序列/pd.DatetimeIndex
-                             ,也可是pd.DatetimeIndex的参数
-        * alpha            : 余滑幅度值
-        * tau              : 余滑松弛因子, tau的单位需要和intp_tunit一致
-        * intp_tunit       : 计算时间插值所在单位，默认为Y,可选为D；pscmpts的默认单位在其tunit字段中储存
+        * pscmpts          : Viscoelastic relaxation time functions caused by △CFS, extracted from result files of pscmp/pylith
+        * obsdate          : Observation time series. The position of the time node to be interpolated，array of pd.Timestamp/pd.DatetimeIndex
+                             , or parameter for pd.DatetimeIndex
+        * alpha            : scale factor of △CFS
+        * tau              : charateristic relaxation time (float); unit of tau  need to be consistent with intp_tunit
+        * intp_tunit       : The unit where the time interpolation is calculated, default is Y, optional is D; 
+                             the default unit of pscmpts is stored in its tunit field
     
     Kwargs  :
-        * onlyAV           : 默认onlyAV=True，表示仅计算余滑导致的黏弹性，而不包括余滑本身，否则两者都包括
-        * mcpu             : 并行计算cpu个数，默认为4，None则等于mp.cpu_count()
-        * unit             : pscmpts中形变单位，默认为m
+        * onlyAV           : Default onlyAV=True，indicates that only the viscoelasticity due to afterslip is calculated 
+                             and the afterslip itself is not included, otherwise both are included
+        * mcpu             : default mcpu = 4, mcpu = mp.cpu_count() if None
+        * unit             : Disp unit of pscmpts，default: m
     '''
     import multiprocessing as mp
     from tqdm import tqdm
