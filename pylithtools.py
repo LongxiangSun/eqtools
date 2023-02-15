@@ -1,4 +1,5 @@
 '''
+
 Written by kfhe, at 12/19/2022
 '''
 
@@ -12,8 +13,8 @@ import numpy as np
 import pyproj as pp
 import sys
 import h5py
-import multifaultsolve_kfh as multfaultsolve
-from multifaultsolve_kfh import multifaultsolve_kfh as msolve
+# import multifaultsolve_kfh as multfaultsolve
+# from multifaultsolve_kfh import multifaultsolve_kfh as msolve
 
 
 # 定义Pylith生成的格林函数相关数据
