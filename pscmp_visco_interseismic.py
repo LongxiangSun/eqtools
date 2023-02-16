@@ -430,10 +430,12 @@ def calviscoGfromPscmp(pscmpts, T=None, diffint=None, unit='m'):
 
     Return   :
         * viscoG        : 单位震间位错对应的黏弹性松弛格林函数，速度方向为构造速度方向为正，和构造速度方向一致
+                          The viscoelastic relaxation Green function corresponding to the unit interseismic dislocation, 
+                          the velocity direction is positive and consistent with the tectonic velocity direction
 
     Comment  :
         * built by kfhe at 01/24/2023
-        * 表示单位速度对应的黏弹性松弛格林函数
+        * Represents the viscoelastic relaxation Green's function corresponding to unit velocity
     '''
 
     disp_cols = ['{0}({1})'.format(idir, unit) for idir in 'E N U'.split()]
