@@ -417,7 +417,8 @@ def interp_pscmp_ts(pscmpts, obsdate, unit='m', intp_tunit='D', mcpu=4, eqdate=N
 # ----------------------------------------------------------------------------------------#
 def calviscoGfromPscmp(pscmpts, T=None, diffint=None, unit='m'):
     '''
-    计算黏弹性震间的影响，从pscmp的结果文件计算
+    Calculation of viscoelastic interseismic effects from the pscmp results file
+    
     Args     :
         * pscmpts       : DataFrame, index: [Date, index], 从pscmp结果文件中读取的时序结果
             * columns   : ['IndinPscmp', 'Lat[deg]', 'Lon[deg]', 'N(m)', 'E(m)', 'U(m)', 'se', 'sn', 'su', 'sen', 'seu', 'snu', 'datestr']
