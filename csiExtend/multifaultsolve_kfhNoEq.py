@@ -156,7 +156,7 @@ class multifaultsolve_kfh(multifaultsolve):
 
 
     def ConstrainedLeastSquareSoln(self, extra_parameters=None, bounds=None, penWeight=1., 
-                                    iterations=1000, tolerance=None, maxfun=100000, D_lap=None, lap_bounds=None, method='mudpy'):
+                                    iterations=1000, tolerance=None, maxfun=100000, D_lap=None, lap_bounds=None, method='mudpy', extA=None, extb=None):
         '''
         lap_bounds for fault.patchType == 'rectangle'
         '''
@@ -176,29 +176,31 @@ class multifaultsolve_kfh(multifaultsolve):
         # Nd = d.shape[0]
         Np = G.shape[1]
         Ns = 0
+        Ns_st = []
+        Ns_se = []
         # build Laplace
         for fault in faults:
+            Ns_st.append(Ns)
             Ns += int(fault.slip.shape[0]*len(fault.slipdir))
+            Ns_se.append(Ns)
         G_lap = np.zeros((Ns, Np))
         d_lap = np.zeros((Ns, ))
 
-        # 行初始索引
-        rst = 0
-        rse = 0
         if D_lap is None:
-            for fault in faults:
+            for ii, fault in enumerate(faults):
                 st = self.fault_indexes[fault.name][0]
-                rse += int(fault.slip.shape[0]*len(fault.slipdir))
                 if fault.type is 'Fault':
                     if fault.patchType in ('rectangle'):
                         lap = fault.buildLaplacian(method=method, bounds=lap_bounds) # _kfh()
                     else:
                         lap = fault.buildLaplacian(method=method, bounds=lap_bounds)
-                    lapsd = blkdiag(lap, lap)
+                    lap_sd = blkdiag(lap, lap)
                     Nsd = len(fault.slipdir)
+                    # 下面的if判断是针对只有单方向约束的情况，需要后续重新梳理逻辑
+                    if Nsd == 1:
+                        lap_sd = lap
                     se = st + Nsd*lap.shape[0]
-                    G_lap[rst:rse, st:se] = lapsd
-                    rst = rse
+                    G_lap[Ns_st[ii]:Ns_se[ii], st:se] = lap_sd
         else:
             # G_lap[:, :Ns] = D_lap
             G_lap = np.zeros((D_lap.shape[0], Np))
@@ -225,6 +227,21 @@ class multifaultsolve_kfh(multifaultsolve):
         rakedesignMat = self.rakedesignMat
         rakevec = self.rakevec
 
+        A = rakedesignMat
+        b = rakevec
+        # 如果添加外部不等式的话
+        if extA is not None:
+            if rakedesignMat is not None:
+                A = np.vstack((A, extA))
+                b = np.hstack((b, extb))
+            else:
+                A = extA
+                b = extb
+            
+        # A(大写字母代表矩阵)， b(小写字母代表向量)
+        self.A = A
+        self.b = b
+
         # Set the constraint of the upper/lower Bounds
         # assert self.lb is not None, "You should assumble the upper/lower bounds first"
         lb = self.lb
@@ -232,7 +249,10 @@ class multifaultsolve_kfh(multifaultsolve):
 
         # Compute using lsqlin equivalent to the lsqlin in matlab
         opts = {'show_progress': False}
-        ret = lsqlin.lsqlin(G2I, d2I, 0, rakedesignMat, rakevec, None, None, lb, ub, None, opts)
+        try:
+            ret = lsqlin.lsqlin(G2I, d2I, 0, A, b, self.Aeq, self.beq, lb, ub, None, opts)
+        except:
+            ret = lsqlin.lsqlin(G2I, d2I, 0, A, b, None, None, lb, ub, None, opts)
         mpost = ret['x']
         # Store mpost
         self.mpost = lsqlin.cvxopt_to_numpy_matrix(mpost)
