@@ -21,7 +21,7 @@
 
 [2] Diao, F., R. Wang, X. Xiong, and C. Liu (2021), Overlapped Postseismic Deformation Caused by Afterslip and Viscoelastic Relaxation Following the 2015 Mw 7.8 Gorkha (Nepal) Earthquake, J. Geophys. Res.: Sol. Ea., 126(3), doi:10.1029/2020jb020378.
 
-[3] He Ke., Y. Wen, C. Xu, W. Xiong, J. Zang (2023), Afterslip and viscoelastic relaxation following the 2021 *Mw* 7.4 Maduo earthquake inferred from InSAR and GPS observations, In Review.
+[3] He Ke., Y. Wen, C. Xu, W. Xiong, J. Zang (2023), Afterslip and viscoelastic relaxation following the 2021 *Mw* 7.4 Maduo earthquake inferred from InSAR and GPS observations, Under Review.
 
 ## Interseismic
 
