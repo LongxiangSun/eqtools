@@ -135,6 +135,10 @@ def lsqlin(C, d, reg=0, A=None, b=None, Aeq=None, beq=None, \
     lb = cvxopt_to_numpy_matrix(lb)
     ub = cvxopt_to_numpy_matrix(ub)
     b  = cvxopt_to_numpy_matrix(b)
+    #@ added by kfhe at 03/02/2023, avoid case where b to np.array(x)
+    if b.size == 1:
+        b = np.array([b.item(0)])
+    #@-----------------------------------------------------------@
 
     if lb is not None:  #Modify 'A' and 'b' to add lb inequalities
         if lb.size == 1:
