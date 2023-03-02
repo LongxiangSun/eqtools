@@ -111,7 +111,7 @@ def selectPatches(fault, tvert1, tvert2, mindep, maxdep):
         * 根据迹线上采的任意两个点的投影XY坐标和所选深度范围，选择相应块体
     '''
     pselect = []
-    strike, dip = np.mean(trifault.getStrikes()), np.mean(trifault.getDips())
+    strike, dip = np.mean(fault.getStrikes()), np.mean(fault.getDips())
     ddep = (maxdep - mindep)/np.tan(dip)
     dx, dy = np.cos(-strike)*ddep, np.sin(-strike)*ddep
     x1, y1 = tvert1[0], tvert1[1]
