@@ -7,6 +7,14 @@ import pyproj as pp
 def getsign(rake, bound=-1):
     '''
     bound: -1表示下界，1表示上界
+    Args   :
+        * rake   : array of rake angle with unit in degree
+
+    Kwargs :
+        * bound  : -1/1, -1 represent lower bound else upper bound
+
+    Return :
+        * sign   : 
     '''
     sign = np.ones_like(rake)
     if bound == -1:
@@ -21,15 +29,21 @@ def getsign(rake, bound=-1):
 def makeRakeBoundMat(rakeseq, rampmark=None):
     '''
     cnt_rake = cnt_subfault
-    Output:
+
+    Args    :
+        * rakeseq : [(-45., 45.), [-180.， 180.],...] 逆时针为正， 上下界旋转方向为逆时针
+                    rake角之间的interval不能大于180.， 且不能提供90.的rake角作为边界
+    
+    Return  :
         Ax <= 0的A矩阵；
         x: [ss, ds]排列的未知参数
-    Input:
-        rakeseq: [(-45., 45.), [-180.， 180.],...] 逆时针为正， 上下界旋转方向为逆时针
-        rake角之间的interval不能大于180.， 且不能提供90.的rake角作为边界
-    Initial: 8/19/2020 10:00, by kefenghe
-    Modify: 
+
+    Comments:
+        * Initial : 08/19/2020 10:00, by kfhe
+        * Modify  : 03/02/2023, by kfhe
     '''
+
+    rakeseq = np.asarray(rakeseq)
     cnt_subfault = rakeseq.shape[0]
     # 定下界设计矩阵
     lowerrake = rakeseq[:, 0]
