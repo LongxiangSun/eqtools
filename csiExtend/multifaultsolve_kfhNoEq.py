@@ -37,6 +37,7 @@ def makeRakeBoundMat(rakeseq, rampmark=None):
     Return  :
         Ax <= 0的A矩阵；
         x: [ss, ds]排列的未知参数
+        * rakedesignMat : 
 
     Comments:
         * Initial : 08/19/2020 10:00, by kfhe
