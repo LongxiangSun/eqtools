@@ -67,7 +67,8 @@ def WriteLines2GMT(segs, zval, gmtfile=None, csimode=False, coordtrunc=3, ztrunc
     zpat = '> -Z{0:.' + f'{ztrunc:d}'+ 'f}'
     for iseg, iz in zip(segs, zval):
         print(zpat.format(iz), file=fout)
-        for ipnt in iseg.values:
+        iseg = iseg if iseg.__class__ in (np.ndarray,) else iseg.values
+        for ipnt in iseg:
             print(coordpat.format(*ipnt), file=fout)
     
     if gmtfile:
