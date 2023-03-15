@@ -5,7 +5,7 @@ import re
 import io
 
 
-def ReadGMTLines(linefile, comment='#', names=['X', 'Y'], encoding='utf-8', readZ=False):
+def ReadGMTLines(gmtfile, comment='#', names=['X', 'Y'], encoding='utf-8', readZ=False):
     '''
     Input    : 
         linefile   : GMT line segments file
@@ -14,7 +14,7 @@ def ReadGMTLines(linefile, comment='#', names=['X', 'Y'], encoding='utf-8', read
     Added by kfhe, at 01/08/2023
     '''
 
-    with open(linefile, 'rt', encoding=encoding) as fin:
+    with open(gmtfile, 'rt', encoding=encoding) as fin:
         linestr = fin.read()
 
     # remove comment content
@@ -41,6 +41,40 @@ def ReadGMTLines(linefile, comment='#', names=['X', 'Y'], encoding='utf-8', read
         return segments, zvals
     else:
         return segments
+
+
+def WriteLines2GMT(segs, zval, gmtfile=None, csimode=False, coordtrunc=3, ztrunc=1):
+    '''
+    Args   :
+        * segs       : List of pandas.DataFrame
+        * zval       : List of zvals
+    
+    Kwargs :
+        * gmtfile    : outfile in gmt format; if None print to Screen.
+        * csimode    : Keep.
+        * coordtrunc : Precision of coordinate
+        * ztrunc     : Precision of zval
+    '''
+    ndim = segs[0].shape[1]
+    coordpat = ''
+    if gmtfile:
+        fout = open(gmtfile, 'wt')
+    else:
+        fout = None
+    for i in range(ndim):
+        coordpat += '{' + f'{i:d}' + ':.' + f'{coordtrunc:d}'+ 'f} '
+    # coordpat = '{0:.3f} {1:.3f} {2:.3f}'
+    zpat = '> -Z{0:.' + f'{ztrunc:d}'+ 'f}'
+    for iseg, iz in zip(segs, zval):
+        print(zpat.format(iz), file=fout)
+        for ipnt in iseg.values:
+            print(coordpat.format(*ipnt), file=fout)
+    
+    if gmtfile:
+        fout.close()
+    
+    # All Done
+    return
 
 
 if __name__ == '__main__':
