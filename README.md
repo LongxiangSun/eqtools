@@ -25,7 +25,7 @@
 
 [1] Diao, F., R. Wang, Y. Wang, X. Xiong, and T. R. Walter (2018), Fault behavior and lower crustal rheology inferred from the first seven years of postseismic GPS data after the 2008 Wenchuan earthquake, Earth Planet. Sci. Lett., 495, 202-212, doi:10.1016/j.epsl.2018.05.020.
 
-[2] Diao, F., R. Wang, X. Xiong, and C. Liu (2021), Overlapped Postseismic Deformation Caused by Afterslip and Viscoelastic Relaxation Following the 2015 Mw 7.8 Gorkha (Nepal) Earthquake, J. Geophys. Res.: Sol. Ea., 126(3), doi:10.1029/2020jb020378.
+[2] Diao, F., R. Wang, X. Xiong, and C. Liu (2021), Overlapped Postseismic Deformation Caused by Afterslip and Viscoelastic Relaxation Following the 2015 *Mw* 7.8 Gorkha (Nepal) Earthquake, J. Geophys. Res.: Sol. Ea., 126(3), doi:10.1029/2020jb020378.
 
 [3] He Ke., Y. Wen, C. Xu, W. Xiong, J. Zang (2023), Afterslip and viscoelastic relaxation following the 2021 *Mw* 7.4 Maduo earthquake inferred from InSAR and GPS observations, Under Review.
 
