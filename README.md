@@ -8,6 +8,7 @@
 
 * Stable code will gradually be incorporated
 * New code will gradually be added
+* Bug will gradually be fixed
 
 ---
 
