@@ -27,11 +27,11 @@
 3. Install eqtools by python setup.py
 
 ```
-# 建立一个build文件 
+# Create a build file 
 python setup.py build 
-# 生成一个发布压缩包 
+# Generate a release package
 python setup.py sdist 
-# 进到dist目录下面解压缩包，然后进入到解压缩文件，执行 
+# Go into the dist directory to unzip the package, then go into the unzip file, and do
 python setup.py install --user
 ```
 
