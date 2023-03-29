@@ -12,6 +12,29 @@
 
 ---
 
+## Installation
+
+### Case 1
+
+1. Download and untar the github package "eqtools"
+2. cd eqtools
+3. pip install .
+
+### Case 2
+
+1. Download and untar the github package "eqtools"
+2. cd eqtools
+3. Install eqtools by python setup.py
+
+```
+# 建立一个build文件 
+python setup.py build 
+# 生成一个发布压缩包 
+python setup.py sdist 
+# 进到dist目录下面解压缩包，然后进入到解压缩文件，执行 
+python setup.py install --user
+```
+
 ## Postseismic
 
 - pscmp_visco_postseismic.py

@@ -3,7 +3,7 @@ import setuptools
 from distutils import util
 from setuptools import find_packages, setup
 
-pathcsiExtend = util.convert_path('src/csiExtend')
+pathcsiExtend = util.convert_path('eqtools/csiExtend')
 
 setup(name = 'eqtools',
     version = '0.1.1',
@@ -11,10 +11,10 @@ setup(name = 'eqtools',
     author_email = 'kefenghe@whu.edu.cn',
     url = 'https://github.com/kefuhe/eqtools',
     description = 'Earthquake related tools',
-    package_dir = {
-    'eqtools': 'src',
-    'eqtools.csiExtend': pathcsiExtend,
-    },
+    # package_dir = {
+    # 'eqtools': 'eqtools',
+    # 'eqtools.csiExtend': pathcsiExtend,
+    # },
     packages=find_packages()
     )
 
