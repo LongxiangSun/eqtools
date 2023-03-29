@@ -361,6 +361,16 @@ if __name__ == '__main__':
     lon0, lat0 = 101.31, 37.80
 
     # ------------源断层信息-----------------------#
+    # # Case 1: Set source fault
+    # projstr_trelis = '+proj=utm +lon_0={0:.1f} +lat_0={1:.1f}'.format(lon0, lat0)
+    # # p_trelis = Proj(projstr_trelis)
+    # vertexfile = 'fault_nodes.inp'
+    # topofile = 'fault1.tri'
+    # source = TriangularPatches('source', lon0=lon0, lat0=lat0)
+    # source.readPatchesFromAbaqus(vertexfile, topofile, projstr=projstr_trelis)
+    # slip = pd.read_csv('slip_0.dat', names='ss ds open'.split(), sep=r'\s+')
+    # source.initializeslip(values=slip.values)
+
     # Case 2: Set source fault
     sourcefault = TriangularPatches('source', lon0=lon0, lat0=lat0)
     slipfile = r'output\slip_total_0.gmt'
