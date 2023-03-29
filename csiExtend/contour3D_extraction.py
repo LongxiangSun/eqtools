@@ -306,6 +306,7 @@ class Contour3DExtraction(SourceInv):
     def calContour3d(self, subpatch_st=None, subpatch_ed=None, ZUp=False, write2file=True, outputfile=None):
         # receiver coordinates
         rXYZ = np.asarray(self.receiver.patch).reshape(-1, 3)
+        receiver = self.receiver
         # source coordinates
         sourcefault = self.source
         topo = sourcefault.Faces
