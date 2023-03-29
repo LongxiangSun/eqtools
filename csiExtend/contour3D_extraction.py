@@ -407,7 +407,7 @@ if __name__ == '__main__':
     contour3d = Contour3DExtraction('contour3d', lon0=lon0, lat0=lat0, source=sourcefault, receiver=receiver)
     contour3d.splitReceiver(2)
     contour3d.setOutputfile('contour_coseismic_nplane0.gmt')
-
+    # 计算等值线
     line3d, lec = contour3d.calContour3d()
     
     contour3d.plot_contour3d(data='receiver', ZUp=False)
