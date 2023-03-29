@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
     # Build a seismiclocations object
     ## Case 1
-    seisfile = r'../2022-01-08_MenyuanAftershocksRelocation.txt'
+    seisfile = r'relocated_seismic.txt'
     # seis = seismiclocations('seis_reloc', lon0=lon0, lat0=lat0)
     # seis.read_from_Hauksson(seisfile, header=4)
     # lon, lat = seis.lat, seis.lon
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     eqprojobj.setSeismicFromFile(seisfile, header=3)
 
     # Select the time range and magnitude range, as well as the space range
-    minlon, maxlon, minlat, maxlat = [101.008153, 101.203804, 37.629900, 37.822300]
+    # minlon, maxlon, minlat, maxlat = [101.008153, 101.203804, 37.629900, 37.822300]
     # seis.selectbox(minlon, maxlon, minlat, maxlat, depth=100000., mindep=0.0)
     # seis.selecttime(start=[2001, 1, 1], end=[2101, 1, 1])
     eqprojobj.seismic.selectmagnitude(minimum=0, maximum=6.8)
