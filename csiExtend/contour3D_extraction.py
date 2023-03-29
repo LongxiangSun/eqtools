@@ -292,7 +292,7 @@ class Contour3DExtraction(SourceInv):
                 print('> -Z{0:.2f}'.format(lec[k]), file=fout)
                 lens = len(line3d[k])
                 x, y, z = [line3d[k][:, i] for i in range(3)]
-                lon, lat = self.putm(x, y, inverse=True)
+                lon, lat = self.putm(x*1000.0, y*1000.0, inverse=True)
                 if ZUp:
                     zkm = z 
                 else:
