@@ -351,6 +351,27 @@ class Contour3DExtraction(SourceInv):
         # All Done
         return line3d, lec
     
+    def plot_contour3d(self, data='receiver', ZUp=False):
+        if data == 'receiver':
+            line3d = self.line3d_in_receiver
+        elif data == 'source':
+            line3d = self.line3d_in_source
+        lec = self.lec
+
+        # Plot Figure
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        for iline, ic in zip(line3d, lec):
+            x, y, z = iline[:, 0], iline[:,1], iline[:, 2]
+            if ZUp:
+                z *= -1
+            ax.plot3D(x, y, z)
+        # plt.show()
+
+        # All Done
+        return fig
+    
 
 
 
@@ -388,12 +409,5 @@ if __name__ == '__main__':
     contour3d.setOutputfile('contour_coseismic_nplane0.gmt')
 
     line3d, lec = contour3d.calContour3d()
-    line3d = contour3d.line3d_in_receiver
-
-    # Plot Figure
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    for iline, ic in zip(line3d, lec):
-        ax.plot3D(iline[:, 0], iline[:,1], -iline[:, 2])
-    plt.show()
+    
+    contour3d.plot_contour3d(data='receiver', ZUp=False)
