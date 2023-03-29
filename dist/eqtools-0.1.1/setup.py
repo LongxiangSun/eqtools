@@ -9,7 +9,7 @@ setup(name = 'eqtools',
     version = '0.1.1',
     author = 'kfh',
     author_email = 'kefenghe@whu.edu.cn',
-    url = 'https://github.com/kefuhe/eqtools',
+    url = 'http://www.geologie.ens.fr/~kefenghe/eqtools/index.html',
     description = 'Earthquake related tools',
     package_dir = {
     'eqtools': 'src',
