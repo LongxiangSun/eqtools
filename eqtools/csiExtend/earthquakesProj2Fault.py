@@ -35,11 +35,31 @@ class EqseqProj2Fault(SourceInv):
     def setSeismic(self, seismic):
         self.seismic = seismic
     
+    def setSeismicFromFile(self, seisfile, header=0):
+        '''
+          Y  m  D  H  M  Sec          Lat   Lon      Dep    Mag
+        '''
+        seis_info = pd.read_csv(seisfile, sep=r'\s+', skiprows=header, comment='#')
+        datetime = seis_info.apply(lambda x: '{0:4d}-{1:02d}-{2:02d}T{3:02d}:{4:02d}:{5:.3f}'.format(*[int(i) for i in x.values[0:5]], x.values[6]), axis=1)
+        seis_info['datetime'] = pd.to_datetime(datetime, format='%Y-%m-%dT%H:%M:%S.%f')
+
+        seis = self.seismic
+
+        seis.time = seis_info.datetime.values
+        seis.lon = seis_info.Lon.values
+        seis.lat = seis_info.Lat.values
+        seis.mag = seis_info.Mag.values
+        seis.depth = seis_info.Dep.values
+        seis.lonlat2xy()
+
+        # All Done
+        return
+    
     def setOutputfile(self, outputfile):
         self.outputfile = outputfile
 
     def splitReceiver(self, times):
-        receiver = self.receiver.duplicateFault() # self.receiver
+        receiver = self.receiver.duplicateFault()
         for _ in range(times):
             subpatches = []
             for ip in range(len(receiver.patch)):
@@ -119,27 +139,31 @@ if __name__ == '__main__':
     receiver.readPatchesFromFile(slipfile, readpatchindex=False)
 
     # Build a seismiclocations object
-    seis = seismiclocations('seis_reloc', lon0=lon0, lat0=lat0)
-    seisfile = r'relocated_earthquakes.txt'
-    seis.read_from_Hauksson(seisfile, header=4)
-    lon, lat = seis.lat, seis.lon
-    seis.lon = lon
-    seis.lat = lat
-    seis.lonlat2xy()
+    ## Case 1
+    seisfile = r'../2022-01-08_MenyuanAftershocksRelocation.txt'
+    # seis = seismiclocations('seis_reloc', lon0=lon0, lat0=lat0)
+    # seis.read_from_Hauksson(seisfile, header=4)
+    # lon, lat = seis.lat, seis.lon
+    # seis.lon = lon
+    # seis.lat = lat
+    # seis.lonlat2xy()
 
     # Define the projection object
     eqprojobj = EqseqProj2Fault('eqproj', utmzone=None, ellps='WGS84', 
                                 lon0=lon0, lat0=lat0, receiver=receiver, outputfile=outfile)
-    # Dense the receiver fault
+    # Dense receiver
     eqprojobj.splitReceiver(3)
 
-    eqprojobj.setSeismic(seis)
+    # eqprojobj.setSeismic(seis)
+
+    # Case 2
+    eqprojobj.setSeismicFromFile(seisfile, header=3)
 
     # Select the time range and magnitude range, as well as the space range
-    # minlon, maxlon, minlat, maxlat = [101.008153, 101.203804, 37.629900, 37.822300]
+    minlon, maxlon, minlat, maxlat = [101.008153, 101.203804, 37.629900, 37.822300]
     # seis.selectbox(minlon, maxlon, minlat, maxlat, depth=100000., mindep=0.0)
     # seis.selecttime(start=[2001, 1, 1], end=[2101, 1, 1])
-    seis.selectmagnitude(minimum=0, maximum=6.8)
+    eqprojobj.seismic.selectmagnitude(minimum=0, maximum=6.8)
 
-    # 投影和输出
+    # Projection and output
     eqprojobj.calproj(write2file=True)
