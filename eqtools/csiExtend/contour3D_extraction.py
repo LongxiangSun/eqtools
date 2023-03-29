@@ -260,7 +260,7 @@ class Contour3DExtraction(SourceInv):
         self.outputfile = outputfile
     
     def splitReceiver(self, times):
-        receiver = self.receiver
+        receiver = self.receiver.duplicateFault()
         for _ in range(times):
             subpatches = []
             for ip in range(len(receiver.patch)):
@@ -274,7 +274,10 @@ class Contour3DExtraction(SourceInv):
             # Too slow
             # receiver.setVerticesFromPatches()
             # rXYZ = receiver.Vertices
-        self.receiver = receiver
+        self.receiver_dense = receiver
+
+        # All Done.
+        return
     
     def write2file(self, data='receiver', ZUp=False, outputfile=None):
         if data == 'receiver':
@@ -306,7 +309,7 @@ class Contour3DExtraction(SourceInv):
     def calContour3d(self, subpatch_st=None, subpatch_ed=None, ZUp=False, write2file=True, outputfile=None):
         # receiver coordinates
         rXYZ = np.asarray(self.receiver.patch).reshape(-1, 3)
-        receiver = self.receiver
+        receiver = self.receiver_dense
         # source coordinates
         sourcefault = self.source
         topo = sourcefault.Faces
