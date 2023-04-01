@@ -46,7 +46,7 @@ class mysarts(csiinsartimeseries):
     def updateh5filedict(self, h5filedict):
         self.h5filedict.update(h5filedict)
     
-    def setGeometry(self, shadowMask=False, downsample=1):
+    def setGeometry(self, shadowMask=False, downsample=1, keeprowtimeseries=True):
 
         dirname = self.dirname
         filenames = self.h5filedict
@@ -64,12 +64,16 @@ class mysarts(csiinsartimeseries):
 
         minlon, maxlon = np.nanmin(longitude), np.nanmax(longitude)
         minlat, maxlat = np.nanmin(latitude), np.nanmax(latitude)
-        self.coordrange = [minlon, maxlon, minlat, maxlat]
+        self.rawcoordrange = [minlon, maxlon, minlat, maxlat]
         
         ysize, xsize = longitude.shape
         lon = np.linspace(minlon, maxlon, xsize)
         lat = np.linspace(maxlat, minlat, ysize)
         meshlon, meshlat = np.meshgrid(lon, lat)
+
+        if keeprowtimeseries:
+            self.rawmeshlon = meshlon
+            self.rawmeshlat = meshlat
 
         self.setLonLat(meshlon.flatten()[::downsample], meshlat.flatten()[::downsample], 
                         incidence=incidenceAngle.flatten()[::downsample], 
@@ -78,7 +82,7 @@ class mysarts(csiinsartimeseries):
         # All Done
         return
 
-    def extractTimeSeries(self, mask=True, downsample=1, factor=1):
+    def extractTimeSeries(self, mask=True, downsample=1, factor=1, keeprowtimeseries=True):
 
         dirname = self.dirname
         filenames = self.h5filedict
@@ -99,12 +103,16 @@ class mysarts(csiinsartimeseries):
             for ts in timeseries:
                 ts[mask == False] = np.nan
                 sar_ts.append(ts.flatten()[::downsample]*factor)
+        
+        if keeprowtimeseries:
+            self.rawtimeseries = timeseries
 
         self.initializeTimeSeries(time=pydates, dtype=np.float32)
 
         return self.setTimeSeries(sar_ts)
 
-    def read_from_h5file(self, dirname=None, h5filedict=None, factor=1.0, mask=True, downssample=1, shadowMask=False):
+    def read_from_h5file(self, dirname=None, h5filedict=None, factor=1.0, mask=True, 
+                         downssample=1, shadowMask=False, keeprowtimeseries=True):
         '''
         
         Args      :
@@ -120,34 +128,78 @@ class mysarts(csiinsartimeseries):
         if dirname is not None:
             self.setdirname(dirname)
         self.setGeometry(shadowMask=shadowMask, downsample=downsample)
-        self.extractTimeSeries(mask=mask, downsample=downsample, factor=factor)
+        self.extractTimeSeries(mask=mask, downsample=downsample, factor=factor, keeprowtimeseries=keeprowtimeseries)
     
         # All Done
         return
     
-    def plotinmpl(self, coordrange=None, faults=None):
-        endsar = self.timeseries[-1]
+    def cutrawts(self):
+        #----------根据预设数据范围提取数据--------------#
+        cornerlon = self.rawcoordrange[0]
+        cornerlat = self.rawcoordrange[-1]
+        nx, ny = self.rawmeshlon.shape
+        minlon, maxlon, minlat, maxlat = self.rawcoordrange
+        dx = (maxlon - minlon)/(ny-1)
+        dy = (-maxlat + minlat)/(nx-1)
+
+        llow = floor((lonrange[0] - cornerlon)/dx) + 0
+        rlow = ceil((lonrange[1] - cornerlon)/dx) + 0
+        trow = floor((latrange[0] - cornerlat)/dy) + 0
+        brow = ceil((latrange[1] - cornerlat)/dy) + 0
+        # 限定下边界不能小于0
+        if llow < 0:
+            llow = 0
+        if brow < 0:
+            brow = 0
+
+
+        # tdim, xdim, ydim = timeseries.shape
+        # keepimgs = np.array([True]*tdim, dtype=bool)
+        # 例如：移除7/16/2019年对应的索引序号
+        # keepimgs[1] = False
+        # 稀疏采样间隔
+        interval = 1
+        tsts = self.rawtimeseries[:, brow: trow:interval, llow: rlow:interval]
+        # dateseries = dateseries[keepimgs]
+
+        # masks = mask[brow: trow:interval, llow: rlow:interval]
+        lon = self.rawmeshlon[brow: trow:interval, llow: rlow:interval]
+        lat = self.rawmeshlat[brow: trow:interval, llow: rlow:interval]
+
+        self.rawmeshlon = lon
+        self.rawmeshlat = lat
+        self.rawtimeseries = tsts
+
+        # All Done
+        return
+    
+    def plotinmpl(self, coordrange=None, faults=None, rawdownsample4plot=100, factor4plot=100, 
+                  vmin=None, vmax=None, symmetry=True):
+        endsar = self.rawtimeseries[-1, ::rawdownsample4plot, ::rawdownsample4plot] * factor4plot
         if coordrange is not None:
             extent = coordrange
         else:
-            extent = self.coordrange
-        vmin, vmax = np.nanmin(endsar), np.nanmax(endsar)
-        vmax = 0.02 # np.max([np.abs(vmin), vmax])
-        vmin = -vmax
-        scale = 100.
-        vmin *= scale
-        vmax *= scale
+            extent = self.rawcoordrange
+        rvmax = vmax if vmax is not None else np.nanmax(endsar)
+        rvmin = vmin if vmin is not None else np.nanmin(endsar)
+        scale = factor4plot
+        if symmetry:
+            vmax = np.max([np.abs(rvmin), rvmax])
+            vmin = -vmax
+        else:
+            vmax = rvmax
+            vmin = rvmin
         cmap = mpl.cm.jet
         #设定每个图的colormap和colorbar所表示范围是一样的，即归一化
         norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
         mapper = mpl.cm.ScalarMappable(cmap=cmap, norm=norm)
 
         fig, ax = plt.subplots(1, 1, tight_layout=True)
-        ax.imshow(endsar*scale, cmap=cmap, vmin=vmin, vmax=vmax,
+        ax.imshow(endsar, cmap=cmap, vmin=vmin, vmax=vmax,
                     origin='upper', extent=extent)
         if faults is not None:
             for ifault in faults:
-                ax.plot(ifault.lon, ifault.ilat, color='black', lw=0.5)
+                ax.plot(ifault.lon, ifault.lat, color='black', lw=0.5)
         plt.colorbar(mappable=mapper, ax=ax, aspect=20, shrink=0.45, label='Disp. (cm)')
         plt.show()
 
@@ -191,6 +243,8 @@ if __name__ == '__main__':
     sarts_menyuan.getProfiles('hypo', loncenter=hypolon, latcenter=hypolat, length=60, azimuth=strike-90, width=5, verbose=True)
     sarts_menyuan.smoothProfiles('hypo', window=0.25, method='mean')
     sarts_menyuan.plotProfiles('Smoothed hypo', color='b')
+
+    sarts_menyuan.plotinmpl(vmin=-2, vmax=2, rawdownsample4plot=1, faults=faults)
 
     sartmp = sarts_menyuan.timeseries[-1]
     name = 'hypo {}'.format(sartmp.name)
