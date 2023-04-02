@@ -306,7 +306,8 @@ class Contour3DExtraction(SourceInv):
         # All Done
         return
     
-    def calContour3d(self, subpatch_st=None, subpatch_ed=None, ZUp=False, write2file=True, outputfile=None):
+    def calContour3d(self, subpatch_st=None, subpatch_ed=None, ZUp=False, write2file=True, 
+                     XYZinds=[0, 2, 1], srange=[0, 4.0],  levels=3, outputfile=None):
         # receiver coordinates
         rXYZ = np.asarray(self.receiver.patch).reshape(-1, 3)
         receiver = self.receiver_dense
@@ -332,7 +333,7 @@ class Contour3DExtraction(SourceInv):
         # XYZinds表示前两个插值后面一个
         line3d, lec = extract_cline(vertices, topo, slip_norm, invdist=invdist, 
                                     triinds=list(range(subtris_node[0], subtris_node[1])), 
-                                    XYZinds=[0, 2, 1], srange=[0, 4.0], levels=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0])
+                                    XYZinds=XYZinds, srange=srange, levels=levels) # [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
 
         self.line3d_in_source = line3d
         self.lec = lec
