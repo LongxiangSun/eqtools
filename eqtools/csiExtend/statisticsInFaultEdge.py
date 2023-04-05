@@ -221,8 +221,6 @@ class StatisticsInFault(csiSourceInv):
         lon2, lat2 = fault.xy2ll(x2, y2)
         lonlat_ed = np.vstack((lon2, lat2, z2)).T
 
-        # 生成刻度 X-axis  
-
 
         if outfile is None:
             outfile = 'fault_{}edge_{}.dat'.format(side, self.source.name)
@@ -338,67 +336,9 @@ class StatisticsInFault(csiSourceInv):
 
         # All Done
         return
-
-    def statSlipAlongDepth(self, slip='total', interval=2.0):
-        fault = self.source
-        # Cal Norm slip
-        slip_pd = pd.DataFrame(fault.slip, columns=['ss', 'ds', 'open'])
-        slip_pd['total'] = np.sqrt(slip_pd.eval('ss**2 + ds**2'))
-        if slip == 'total':
-            slip = slip_pd.total.values
-        elif slip == 'strikeslip':
-            slip = slip_pd.ss.values
-        elif slip == 'dipslip':
-            slip = slip_pd.ds.values
-        data = pd.DataFrame(np.hstack((slip.flatten()[:, None], np.array([ic[-1] for ic in fault.getcenters()])[:, None])), columns=['slip', 'z'])
-        zcut = pd.cut(data.z.values.flatten(), np.arange(fault.top, data.z.values.max()+0.1, interval)) # ind.mid ind.left ind.right
-        slip_dep = data.groupby(zcut).mean()
-        slip_dep = slip_dep/slip_dep.max()[0]
-        ind = pd.IntervalIndex(slip_dep.index)
-        z_dep = ind.mid.values
-        return slip_dep.slip.values, z_dep
-
-    def StatInfoInSide(self, side='right', slip='total', interval=2.0, curvelist=[], histlist=[]):
-        '''
-        沿深度方向的信息统计
-        '''
-        outdir = self.outdir
-        fault = self.source
-
-        sideedges = self.sideedges[side]
-        rotateAngle = sideedges['rotateAngle']
-        z, x1 = sideedges['depth'], sideedges['x_trans']
-        y1 = sideedges['y_trans']
-        sign = sideedges['sign']
-        horz_angle = sideedges['horz_angle']
-        step0, steped = sideedges['xaxis_ticks']
-        step = steped - step0
-
-        # 统计滑动沿深度信息
-        hslp, hdep = self.statSlipAlongDepth(slip=slip, interval=interval)
-        print(hslp, hdep)
-
-        fit = interp1d(z, x1)
-        z_pred = hdep
-        x_pred = fit(z_pred)
-        y_pred = np.ones_like(x_pred)*y1.mean()
-        xy_offset = (step0 + step*hslp)*sign*np.exp(1.j*np.deg2rad(horz_angle))
-        x_pred += xy_offset.real
-        y_pred += xy_offset.imag
-
-        xy2 = (x_pred + y_pred*1.j)*np.exp(-1.j*rotateAngle/180*np.pi)
-        x2, y2, z2 = xy2.real, xy2.imag, z_pred
-        lon2, lat2 = fault.xy2ll(x2, y2)
-        lonlat2 = np.vstack((lon2, lat2, z2)).T
-
-        outfile_slp = 'fault_{}edge_{}_slip.dat'.format(side, self.source.name)
-        lonlat2 = pd.DataFrame(lonlat2, columns=['lon', 'lat', 'depth'])
-        lonlat2.to_csv(os.path.join(outdir, outfile_slp), index=False, header=False, float_format='%.6f')
-
-        # All Done
-        return # zcut, slip_dep
     
-    def StatHistInSide(self, value=None, depth=None, bins=15, side='right', outfile='stat_hist.gmt'):
+    def StatInSide(self, value=None, depth=None, slip='total', bins=15, zinterval=2, cutmethod='pdcut',
+                       side='right', method='mean', statkind='hist', outfile='stat_hist.gmt'):
 
         outdir = self.outdir
         fault = self.source
@@ -412,15 +352,11 @@ class StatisticsInFault(csiSourceInv):
         step0, steped = sideedges['xaxis_ticks']
         step = steped - step0
 
-        acums, adeps = np.histogram(depth, bins=bins)
-        acums = acums / acums.max() # Norm
-
-        ## 生成柱状图
-        adeps_hist = np.repeat(adeps, 2)[1:-1]
-        acums_hist = np.repeat(acums, 2)
+        value, depth = self._statinSide(value=value, depth=depth, slip=slip, side=side, method=method,
+                        statkind=statkind, cutmethod=cutmethod, zinterval=zinterval, bins=bins)
 
         fit = interp1d(z, x1)
-        z_pred = adeps_hist
+        z_pred = depth
         x_pred = fit(z_pred)
         y_pred = np.ones_like(x_pred)*y1.mean()
         xy_offset = step0*sign*np.exp(1.j*np.deg2rad(horz_angle))
@@ -432,84 +368,90 @@ class StatisticsInFault(csiSourceInv):
         lon2, lat2 = fault.xy2ll(x2, y2)
         lonlat2 = np.vstack((lon2, lat2, z2)).T
 
-        xy_offset = step*acums_hist*sign*np.exp(1.j*np.deg2rad(horz_angle))
+        xy_offset = step*value*sign*np.exp(1.j*np.deg2rad(horz_angle))
         x_pred += xy_offset.real
         y_pred += xy_offset.imag
         xy3 = (x_pred + y_pred*1.j)*np.exp(-1.j*rotateAngle/180*np.pi)
-        x3, y3, z3 = xy3.real, xy3.imag, adeps_hist
+        x3, y3, z3 = xy3.real, xy3.imag, depth
         lon3, lat3 = fault.xy2ll(x3, y3)
         lonlat3 = np.vstack((lon3, lat3, z3)).T
 
-        # Write2file
-        with open(os.path.join(outdir, outfile), 'wt') as fout:
-            for i in range(acums.shape[0]):
+        if statkind == 'hist':
+            with open(os.path.join(outdir, outfile), 'wt') as fout:
+                for i in range(int(value.shape[0]/2.0)):
+                    print('>', file=fout)
+                    st1, st2 = lonlat2[2*i:2*i+2]
+                    st4, st3 = lonlat3[2*i:2*i+2]
+                    for st in [st1, st2, st3, st4]:
+                        print('{0:.3f} {1:.3f} {2:.3f}'.format(*st), file=fout)
+        elif statkind == 'curve':
+            with open(os.path.join(outdir, outfile), 'wt') as fout:
                 print('>', file=fout)
-                st1, st2 = lonlat2[2*i:2*i+2]
-                st4, st3 = lonlat3[2*i:2*i+2]
-                for st in [st1, st2, st3, st4]:
+                for i in range(value.shape[0]):
+                    st = lonlat3[i]
                     print('{0:.3f} {1:.3f} {2:.3f}'.format(*st), file=fout)
         
         # All Done
         return
     
-    def StatCurveInSide(self, value, depth, side='right', zrange=None, method='mean',
-                        zinterval=2, outfile='curve_stat.gmt'):
+
+    def _statinSide(self, value=None, depth=None, slip='total', side='right', method='mean',
+                        statkind='hist', cutmethod='pdcut', zinterval=2, bins=10):
         '''
-        Args      :
-            * depth    : depth in km, +
-        Kwargs    :
-            * zrange   : [fault.top, fault.maxdepth] if None 
+        statkind   :
+            * hist
+            * curve
+            * bar
+        cutmethod :
+            * pdcut : pd.cut
+            * hist  : np.histogram
         '''
         fault = self.source
 
-        zcut = pd.cut(depth, np.arange(fault.top, depth.max()+0.1, zinterval)) # ind.mid ind.left ind.right
-        data = pd.DataFrame(value, columns=['value'])
-        if method == 'mean':
-            slip_dep = data.groupby(zcut).mean()
-        elif method == 'sum':
-            slip_dep = data.groupby(zcut).sum()
-        slip_dep = slip_dep/slip_dep.max()[0]
-        ind = pd.IntervalIndex(slip_dep.index)
-        z_dep = ind.mid.values
-        slip_dep = slip_dep.value.values
-        # 以上是数据切割部分
+        if depth is None:
+            slip_samp = fault.slip
+            if slip == 'total':
+                slip_norm = np.linalg.norm(slip_samp, axis=1)
+            elif slip == 'strikeslip':
+                slip_norm = np.linalg.norm(slip_samp[:, 0][:, None], axis=1)
+            elif slip == 'dipslip':
+                slip_norm = np.linalg.norm(slip_samp[:, 1][:, None], axis=1)
+            value = slip_norm
+            depth = np.array(fault.getcenters())[:, -1]
+        
+        if cutmethod == 'hist':
+            acums, adists = np.histogram(depth, bins=bins)
+            val_norm = acums/acums.max()
+            # 将bin的左右和中点坐标均保留
+            zt = adists[:-1]
+            zb = adists[1:]
+            zc = (zt + zb)/2.0
+        elif cutmethod == 'pdcut':
+            zcut = pd.cut(depth, np.arange(fault.top, depth.max()+0.1, zinterval))
+            data = pd.DataFrame(value, columns=['value'])
+            if method == 'mean':
+                val_dep = data.groupby(zcut).mean()
+            elif method == 'sum':
+                val_dep = data.groupby(zcut).sum()
+            val_norm = val_dep/val_dep.max()[0]
+            val_norm = val_norm.value.values
+            ind = pd.IntervalIndex(val_dep.index)
+            zc = ind.mid.values
+            zt = ind.left.values
+            zb = ind.right.values
 
-        outdir = self.outdir
-        fault = self.source
-
-        sideedges = self.sideedges[side]
-        rotateAngle = sideedges['rotateAngle']
-        z, x1 = sideedges['depth'], sideedges['x_trans']
-        y1 = sideedges['y_trans']
-        sign = sideedges['sign']
-        horz_angle = sideedges['horz_angle']
-        step0, steped = sideedges['xaxis_ticks']
-        step = steped - step0
-
-        # 统计滑动沿深度信息
-        hslp, hdep = slip_dep, z_dep
-
-        fit = interp1d(z, x1)
-        z_pred = hdep
-        x_pred = fit(z_pred)
-        y_pred = np.ones_like(x_pred)*y1.mean()
-        xy_offset = (step0 + step*hslp)*sign*np.exp(1.j*np.deg2rad(horz_angle))
-        x_pred += xy_offset.real
-        y_pred += xy_offset.imag
-
-        xy2 = (x_pred + y_pred*1.j)*np.exp(-1.j*rotateAngle/180*np.pi)
-        x2, y2, z2 = xy2.real, xy2.imag, z_pred
-        lon2, lat2 = fault.xy2ll(x2, y2)
-        lonlat2 = np.vstack((lon2, lat2, z2)).T
-
-        lonlat2 = pd.DataFrame(lonlat2, columns=['lon', 'lat', 'depth'])
-        lonlat2.to_csv(os.path.join(outdir, outfile), index=False, header=False, float_format='%.6f')
+        if statkind == 'hist':
+            value = np.repeat(val_norm, 2)
+            depth = np.vstack((zt, zb)).T.flatten()
+        else:
+            value = val_norm
+            depth = zc
 
         # All Done
-        return 
+        return value, depth
     
-    def statinTop(self, value=None, lonlat=None, hinterval=2.0, slip='total', statkind='curve', height_scale=1.0,
-                  bins=15, method='mean', cutmethod='pdcut', discretizeInterval=0.2, depth_eps=0.25):
+    def _statinTop(self, value=None, lonlat=None, hinterval=2.0, slip='total_top', statkind='curve', height_scale=1.0, doStat=True,
+                  bins=15, method='mean', cutmethod='pdcut', discretizeInterval=0.2, depth_eps=0.25, vert_angle=None):
         '''
         所有的数据沿断层的统计
         statkind  : curve, hist, bar
@@ -519,8 +461,11 @@ class StatisticsInFault(csiSourceInv):
         cutmethod : pdcut, hist; 柱形显示的分割方式
             * pdcut   : hinterval来设置区间
             * hist    : bins来设置水平区间
+            * None    : 不统计，直接原坐标输出，这里只能用bar/curve
+        slip      : 
+            * total_top, strikeslip_top, dipslip_top
+            * total_all, strikeslip_all, dipslip_all
         '''
-        outdir = self.outdir
         fault = self.source
         side = 'top'
 
@@ -533,9 +478,6 @@ class StatisticsInFault(csiSourceInv):
         sort_ind = np.argsort(np.mean(fault.Vertices[top_vert_inds, :], axis=1)[:, 0])
         top_edge_sort = np.array(top_edge)[sort_ind]
 
-        top_slip = fault.slip[top_edge_sort, :]
-        top_slip_norm = np.linalg.norm(top_slip, axis=1)
-
         # 深度判定flag
         top = fault.top
         flag = top_verts[:, -1] < top + depth_eps
@@ -544,217 +486,136 @@ class StatisticsInFault(csiSourceInv):
         sort_ind = np.argsort(fault.Vertices[finds][:, 0])
         finds_sort = finds[sort_ind]
 
+        # 顶边按经度顺序的走向角和倾角
+        centers = np.asarray(fault.getcenters())
+        top_edge_centers = centers[top_edge_sort, :]
         strikes = fault.getStrikes()[top_edge_sort]
         dips = fault.getDips()[top_edge_sort]
-
         if vert_angle is None:
             vert_angle = 0
+        # Rotation axis_angle
+        dips = np.deg2rad(vert_angle) + dips
 
-        if lonlat is not None:
-            # Bug: 用经度判断位置
-            top_cnts_ll = np.mean(fault.Vertices_ll[fault.Faces[top_edge_sort], :], axis=1)
-            int_indx = np.searchsorted(top_cnts_ll[:, 0], lonlat[:, 0])
-            print(int_indx.shape)
+        if lonlat is None:
+            if 'all' in slip:
+                ind_samp = np.arange(0, fault.slip.shape[0])
+            elif 'top' in slip:
+                ind_samp = top_edge_sort
+            slip_samp = fault.slip[ind_samp, :]
+            if 'total' in slip:
+                slip_norm = np.linalg.norm(slip_samp, axis=1)
+            elif 'strikeslip' in slip:
+                slip_norm = np.linalg.norm(slip_samp[:, 0][:, None], axis=1)
+            elif 'dipslip' in slip:
+                slip_norm = np.linalg.norm(slip_samp[:, 1][:, None], axis=1)
+            value = slip_norm
+            x_samp, y_samp = centers[ind_samp, 0], centers[ind_samp, 1]
+            lon_samp, lat_samp = fault.xy2ll(x_samp, y_samp)
+            lonlat = np.vstack((lon_samp, lat_samp)).T
 
-            strikes = fault.getStrikes()[top_edge_sort]
-            dips = fault.getDips()[top_edge_sort]
 
-            # Rotation axis_angle
-            dips = vert_angle + dips
+        # 断层迹线离散化，目的为了寻找临近点，将数据坐标投影到走向曲线上
+        fault.discretize(every=discretizeInterval)
+        dis_trace = fault.cumdistance(discretized=True)
 
-            # 计算坐标
-            fault.discretize(every=discretizeInterval)
-            dis_trace = fault.cumdistance(discretized=True)
+        # Proj Input coordinate
+        ## 距离索引将输入数据投影到断层迹线上，给出对应索引值
+        x, y = fault.ll2xy(lonlat[:, 0], lonlat[:, 1])
+        xy = np.vstack((x, y)).T
+        xy_trace = np.vstack((fault.xi, fault.yi)).T
+        dist_mat = np.linalg.norm(xy_trace[None, :, :] - xy[:, None,:], axis=2)
+        ind_dist = np.argsort(dist_mat, axis=1)[:, 0]
+        # 数据坐标距离断层迹线起始点的距离，这里将相当于数据的投影坐标
+        # Input (lonlat, value) is transferred to (distc, value)
+        distc = dis_trace[ind_dist]
 
-            # Cal Hist
-            x, y = fault.ll2xy(lonlat[:, 0], lonlat[:, 1])
-            xy = np.vstack((x, y)).T
-            xy_trace = np.vstack((fault.xi, fault.yi)).T
-            dist_mat = np.linalg.norm(xy_trace[None, :, :] - xy[:, None,:], axis=2)
-            ind_dist = np.argsort(dist_mat, axis=1)[:, 0]
-            print(dist_mat.shape, ind_dist.shape)
-            # 数据距离断层迹线起始点的距离
-            disti = dis_trace[ind_dist]
+        if value is None:
+            value = np.ones_like(lonlat[:, 0])
 
-            if value is None:
-                acums, adists = np.histogram(disti, bins=bins)
-                acums_hist = np.repeat(acums, 2)
-                adists_hist = np.repeat(adists, 2)[1:-1]
-                inds = np.searchsorted(dis_trace, adists_hist)
-                # 这是重新插值repeat后的坐标
-                xi, yi = fault.xi[inds], fault.yi[inds]
-                zi = np.ones_like(xi)*fault.top
-                value = acums_hist
-            else:
-                zcut = pd.cut(disti, np.arange(fault.top, disti.max()+0.1, hinterval)) # ind.mid ind.left ind.right
+        # 不做统计，直接按原始数据输出
+        if not doStat:
+            xi, yi = fault.xi[ind_dist], fault.yi[ind_dist]
+            zi = np.ones_like(xi)*fault.top
+            # 用于提取走向角和倾角的判断坐标，即点中心坐标
+            value = value/value.max()
+            x_angle = np.repeat(xi, 3)
+            value = np.repeat(value, 3)
+            xi = np.repeat(xi, 3)
+            yi = np.repeat(yi, 3)
+            zi = np.repeat(zi, 3)
+        # 做统计，cutmehotd == 'pdcut' or 'hist'
+        else:
+                # Bug: hist只进行计数统计
+            if cutmethod == 'hist':
+                acums, adists = np.histogram(distc, bins=bins)
+                val_norm = acums/acums.max()
+                # 将bin的左右和中点坐标均保留
+                xl = adists[:-1]
+                xr = adists[1:]
+                xc = (xl + xr)/2.0
+            elif cutmethod == 'pdcut':
+                zcut = pd.cut(distc, np.arange(distc.min(), distc.max()+0.1, hinterval)) # ind.mid ind.left ind.right
                 data = pd.DataFrame(value, columns=['value'])
                 if method == 'mean':
-                    slip_stk = data.groupby(zcut).mean()
+                    val_stk = data.groupby(zcut).mean()
                 elif method == 'sum':
-                    slip_stk = data.groupby(zcut).sum()
-                slip_stk = slip_stk/slip_stk.max()[0]
-                ind = pd.IntervalIndex(slip_stk.index)
-                x_st, x_ed = ind.left.values, ind.right.values
-                x_bins = np.vstack((x_st, x_ed)).T.flatten()
-                inds = np.searchsorted(dis_trace, x_bins)
-                slip_stk = slip_stk.value.values
-                xi, yi = fault.xi[inds], fault.yi[inds]
-                zi = np.ones_like(xi)*fault.top
-                value = np.repeat(slip_stk, 2)
-                # 聚类后需要用聚类后的坐标来提取dips和strikes
-                x_mid = ind.mid.values
-                inds = np.searchsorted(dis_trace, x_mid)
-                xm = fault.xi[inds]
-                centers = np.asarray(fault.getcenters())
-                inds2 = np.searchsorted(centers[top_edge_sort, 0], xm)
-                strikes = np.repeat(strikes[inds2], 2)
-                dips = np.repeat(dips[inds2], 2)
+                    val_stk = data.groupby(zcut).sum()
+                val_norm = val_stk/val_stk.max()[0]
+                val_norm = val_norm.value.values
+                # 坐标提取
+                ind = pd.IntervalIndex(val_stk.index)
+                xl, xc, xr = ind.left.values, ind.mid.values, ind.right.values
+            # 提取左、中、右坐标和中心点
+            x_dist = np.vstack((xl, xc, xr)).T.flatten()
+            inds = np.searchsorted(dis_trace, x_dist)
+            xi, yi = fault.xi[inds], fault.yi[inds]
+            zi = np.ones_like(xi)*fault.top
+            x_angle = np.repeat(xi[1::3], 3)
+            value = np.repeat(val_norm, 3)
+        
+        if statkind == 'curve' or statkind == 'bar':
+            x_angle = x_angle[1::3]
+            xi = xi[1::3]
+            yi = yi[1::3]
+            zi = zi[1::3]
+            value = value[1::3]
+        elif statkind == 'hist':
+            x_angle = np.vstack((x_angle[0::3], x_angle[2::3])).T.flatten()
+            xi = np.vstack((xi[0::3], xi[2::3])).T.flatten()
+            yi = np.vstack((yi[0::3], yi[2::3])).T.flatten()
+            zi = np.vstack((zi[0::3], zi[2::3])).T.flatten()
+            value = np.vstack((value[0::3], value[2::3])).T.flatten()
 
-            top_x, top_z = value*np.cos(dips)*height_scale, value*np.sin(dips)*height_scale
-            verts = np.vstack((xi, yi, zi)).T
-            trans_verts = (verts[:, 0] + verts[:, 1]*1.j)*np.exp(1.j*strikes)
-        else:
-            # Rotation axis_angle
-            dips = vert_angle + dips
-            strikes = np.repeat(strikes, 2)
-            dips = np.repeat(dips, 2)
+        # 获得对应走向角和倾角
+        ind_angle = np.searchsorted(top_edge_centers[:, 0], x_angle)
+        strikes = strikes[ind_angle]
+        dips = dips[ind_angle]
 
-            top_slps = np.repeat(top_slip_norm, 2)
-            top_slps /= top_slps.max()
-            top_x, top_z = top_slps*np.cos(dips)*height_scale, top_slps*np.sin(dips)*height_scale
-
-            verts = fault.Vertices[finds_sort, :]
-            trans_verts = (verts[:, 0] + verts[:, 1]*1.j)*np.exp(1.j*strikes)
+        top_x, top_z = value*np.cos(dips)*height_scale, value*np.sin(dips)*height_scale
+        verts = np.vstack((xi, yi, zi)).T
+        trans_verts = (verts[:, 0] + verts[:, 1]*1.j)*np.exp(1.j*strikes)
         
         # All Done
-        return top_x, top_z, trans_verts
+        return top_x, top_z, verts, trans_verts, strikes, dips
 
-    def StatHistinTop(self, value=None, lonlat=None, hinterval=2.0, slip='total', bins=15, side='top', depth_eps=0.25, 
-                      zoffset=0.2, hight_scale=1.0, vert_angle=None, method='mean',
+    def StatinTop(self, value=None, lonlat=None, hinterval=2.0, slip='total_top', bins=15, depth_eps=0.25, doStat=True,
+                      zoffset=0.2, height_scale=1.0, vert_angle=None, method='mean', cutmethod='pdcut', statkind='hist',
                       outfile='stat_histInTop.gmt', discretizeInterval=0.2):
         '''
-        self.edges = {
-            'left': left_edge, 
-            'right': right_edge, 
-            'top': top_edge, 
-            'bottom': bottom_edge}
-        self.edgepntsInVertices = {
-            'left': lpnt_inds, 
-            'right': rpnt_inds, 
-            'top': tpnt_inds, 
-            'bottom': bpnt_inds}
+        statkind :
+            * hist
+            * bar
+            * curve
+
+        Bug: 如果断层反倾得话，vert_angle会导致想不同方向偏转
         '''
         outdir = self.outdir
         fault = self.source
+        side = 'top'
 
-        top_edge = self.edges[side]
-        top_vert_inds = self.edgepntsInVertices[side]
-        top_vert_inds = fault.Faces[top_edge]
-        top_verts_finds = top_vert_inds.flatten()
-        top_verts = fault.Vertices[top_verts_finds]
-        # 顶部三角形按照x坐标排序
-        sort_ind = np.argsort(np.mean(fault.Vertices[top_vert_inds, :], axis=1)[:, 0])
-        top_edge_sort = np.array(top_edge)[sort_ind]
-
-        top_slip = fault.slip[top_edge_sort, :]
-        top_slip_norm = np.linalg.norm(top_slip, axis=1)
-
-        # 深度判定flag
-        top = fault.top
-        flag = top_verts[:, -1] < top + depth_eps
-        finds = top_verts_finds[flag]
-        # 顶部三角形顶边顶点按照x坐标排序
-        sort_ind = np.argsort(fault.Vertices[finds][:, 0])
-        finds_sort = finds[sort_ind]
-
-        strikes = fault.getStrikes()[top_edge_sort]
-        dips = fault.getDips()[top_edge_sort]
-
-        if vert_angle is None:
-            vert_angle = 0
-
-        if lonlat is not None:
-            # Bug: 用经度判断位置
-            top_cnts_ll = np.mean(fault.Vertices_ll[fault.Faces[top_edge_sort], :], axis=1)
-            int_indx = np.searchsorted(top_cnts_ll[:, 0], lonlat[:, 0])
-            print(int_indx.shape)
-
-            strikes = fault.getStrikes()[top_edge_sort]
-            dips = fault.getDips()[top_edge_sort]
-
-            # Rotation axis_angle
-            dips = vert_angle + dips
-
-            # strikes = strikes[int_indx]
-            # dips = dips[int_indx]
-            # # Repeat for Hist
-            # strikes = np.repeat(strikes, 2)
-            # dips = np.repeat(dips, 2)
-            # print(dips.shape, strikes.shape)
-
-            # 计算坐标
-            fault.discretize(every=discretizeInterval)
-            dis_trace = fault.cumdistance(discretized=True)
-
-            # Cal Hist
-            x, y = fault.ll2xy(lonlat[:, 0], lonlat[:, 1])
-            xy = np.vstack((x, y)).T
-            xy_trace = np.vstack((fault.xi, fault.yi)).T
-            dist_mat = np.linalg.norm(xy_trace[None, :, :] - xy[:, None,:], axis=2)
-            ind_dist = np.argsort(dist_mat, axis=1)[:, 0]
-            print(dist_mat.shape, ind_dist.shape)
-            # 数据距离断层迹线起始点的距离
-            disti = dis_trace[ind_dist]
-
-            if value is None:
-                acums, adists = np.histogram(disti, bins=bins)
-                acums_hist = np.repeat(acums, 2)
-                adists_hist = np.repeat(adists, 2)[1:-1]
-                inds = np.searchsorted(dis_trace, adists_hist)
-                # 这是重新插值repeat后的坐标
-                xi, yi = fault.xi[inds], fault.yi[inds]
-                zi = np.ones_like(xi)*fault.top
-                value = acums_hist
-            else:
-                zcut = pd.cut(disti, np.arange(fault.top, disti.max()+0.1, hinterval)) # ind.mid ind.left ind.right
-                data = pd.DataFrame(value, columns=['value'])
-                if method == 'mean':
-                    slip_stk = data.groupby(zcut).mean()
-                elif method == 'sum':
-                    slip_stk = data.groupby(zcut).sum()
-                slip_stk = slip_stk/slip_stk.max()[0]
-                ind = pd.IntervalIndex(slip_stk.index)
-                x_st, x_ed = ind.left.values, ind.right.values
-                x_bins = np.vstack((x_st, x_ed)).T.flatten()
-                inds = np.searchsorted(dis_trace, x_bins)
-                slip_stk = slip_stk.value.values
-                xi, yi = fault.xi[inds], fault.yi[inds]
-                zi = np.ones_like(xi)*fault.top
-                value = np.repeat(slip_stk, 2)
-                # 聚类后需要用聚类后的坐标来提取dips和strikes
-                x_mid = ind.mid.values
-                inds = np.searchsorted(dis_trace, x_mid)
-                xm = fault.xi[inds]
-                print(top_edge_sort)
-                centers = np.asarray(fault.getcenters())
-                inds2 = np.searchsorted(centers[top_edge_sort, 0], xm)
-                strikes = np.repeat(strikes[inds2], 2)
-                dips = np.repeat(dips[inds2], 2)
-
-            top_x, top_z = value*np.cos(dips)*hight_scale, value*np.sin(dips)*hight_scale
-            verts = np.vstack((xi, yi, zi)).T
-            trans_verts = (verts[:, 0] + verts[:, 1]*1.j)*np.exp(1.j*strikes)
-        else:
-            # Rotation axis_angle
-            dips = vert_angle + dips
-            strikes = np.repeat(strikes, 2)
-            dips = np.repeat(dips, 2)
-
-            top_slps = np.repeat(top_slip_norm, 2)
-            top_x, top_z = top_slps*np.cos(dips)*hight_scale, top_slps*np.sin(dips)*hight_scale
-
-            verts = fault.Vertices[finds_sort, :]
-            trans_verts = (verts[:, 0] + verts[:, 1]*1.j)*np.exp(1.j*strikes)
+        top_x, top_z, verts, trans_verts, strikes, dips = self._statinTop(value=value, lonlat=lonlat, hinterval=hinterval, 
+                    slip=slip, statkind=statkind, height_scale=height_scale, bins=bins, method=method, cutmethod=cutmethod, 
+                    discretizeInterval=discretizeInterval, depth_eps=depth_eps, vert_angle=vert_angle, doStat=doStat)
 
         # 起始位置偏移项
         step0 = zoffset
@@ -776,78 +637,7 @@ class StatisticsInFault(csiSourceInv):
         lon, lat = fault.xy2ll(x0, y0)
         lonlatz2 = np.vstack((lon, lat, z)).T
 
-        with open(os.path.join(outdir, outfile), 'wt') as fout: # slp_stats_hist_Tip
-            for i in range(int(lon.shape[0]/2.0)):
-                print('>', file=fout)
-                st1, st2 = lonlatz1[2*i:2*i+2]
-                st4, st3 = lonlatz2[2*i:2*i+2]
-                for st in [st1, st2, st3, st4]:
-                    print('{0:.3f} {1:.3f} {2:.3f}'.format(*st), file=fout)
-        
-        if not hasattr(self, 'sideedges'):
-            self.sideedges = {}
-        self.sideedges[side] = {
-            'top_edge_sort': top_edge_sort,
-            'strikes_edge_sort': strikes,
-            'dips_edge_sort': dips
-        }
-        
-        # All Done 
-        return
-
-    def StatCurveinTop(self, value, lonlat, side='top', zrange=None, method='mean', depth_eps=0.25, 
-                      zoffset=0.2, hight_scale=1.0, vert_angle=None, outfile='stat_CurveInTop.gmt', outkind='bar'):
-        '''
-        outkind  : bar/curve
-        Bug: 如果断层反倾得话，vert_angle会导致想不同方向偏转
-        '''
-        outdir = self.outdir
-        fault = self.source
-        top_edge_sort = self.sideedges[side]['top_edge_sort']
-        # 排序并且寻找临近子元的走向角和倾向角
-        top_cnts_ll = np.mean(fault.Vertices_ll[fault.Faces[top_edge_sort], :], axis=1)
-        int_indx = np.searchsorted(top_cnts_ll[:, 0], lonlat[:, 0])
-
-        strikes = fault.getStrikes()[top_edge_sort]
-        dips = fault.getDips()[top_edge_sort]
-
-        if vert_angle is None:
-            vert_angle = 0
-
-        # Rotation axis_angle
-        dips = vert_angle + dips
-
-        strikes = strikes[int_indx]
-        dips = dips[int_indx]
-
-        slp_x, slp_z = value*np.cos(dips)*hight_scale, value*np.sin(dips)*hight_scale
-
-        # 起始位置偏移项
-        step0 = zoffset
-        step0_x, step0_z = step0*np.cos(dips), step0*np.sin(dips)
-
-        vx, vy = fault.ll2xy(slp_pan.lon.values, slp_pan.lat.values)
-        vz = np.zeros_like(vx)
-        verts = np.vstack((vx, vy, vz)).T
-        trans_verts = (verts[:, 0] + verts[:, 1]*1.j)*np.exp(1.j*strikes)
-
-        # 底部顶点
-        trans_verts -= step0_x
-        z = verts[:, -1] - step0_z
-        xy = trans_verts*np.exp(-1.j*strikes)
-        x0, y0 = xy.real, xy.imag
-        lon, lat = fault.xy2ll(x0, y0)
-        lonlatz1 = np.vstack((lon, lat, z)).T
-
-        # 顶部顶点
-        trans_verts -= slp_x
-        z -= slp_z
-        xy = trans_verts*np.exp(-1.j*strikes)
-        x0, y0 = xy.real, xy.imag
-        lon, lat = fault.xy2ll(x0, y0)
-        lonlatz2 = np.vstack((lon, lat, z)).T
-
-        if outkind == 'bar':
+        if statkind == 'bar':
             with open(os.path.join(outdir, outfile), 'wt') as fout:
                 for i in range(lonlatz1.shape[0]):
                     print('>', file=fout)
@@ -855,12 +645,23 @@ class StatisticsInFault(csiSourceInv):
                     st3 = lonlatz2[i, :]
                     for st in [st1, st3]:
                         print('{0:.3f} {1:.3f} {2:.3f}'.format(*st), file=fout)
-        else:
+        elif statkind == 'curve':
             with open(os.path.join(outdir, outfile), 'wt') as fout:
                 print('>', file=fout)
                 for i in range(lonlatz2.shape[0]):
                     st = lonlatz2[i, :]
                     print('{0:.3f} {1:.3f} {2:.3f}'.format(*st), file=fout)
+        elif statkind == 'hist':
+            with open(os.path.join(outdir, outfile), 'wt') as fout:
+                for i in range(int(lon.shape[0]/2.0)):
+                    print('>', file=fout)
+                    st1, st2 = lonlatz1[2*i:2*i+2]
+                    st4, st3 = lonlatz2[2*i:2*i+2]
+                    for st in [st1, st2, st3, st4]:
+                        print('{0:.3f} {1:.3f} {2:.3f}'.format(*st), file=fout)
+        
+        # All Done 
+        return
 
 
 if __name__ == '__main__':
@@ -888,22 +689,19 @@ if __name__ == '__main__':
     lonlat = statobj.getSideEdgeLine(plot=False, step=0.5, yaxis_ticks=[0, 5, 10, 15], horz_angle=120, tick_scale=0.5)
     # 为了让统计信息沿断层面，vert_angle通常不要设置，即不旋转倾向角
     statobj.genXaxis(xaxis_ticks=[0.8, 4.2], tick_scale=1.0, horz_angle=120, vert_angle=None, xaxis_zoffset=0.7)
-    # slip in total
-    statobj.StatInfoInSide(interval=1.5)
 
     data = pd.read_csv(r'd:\2022Menyuan\2022Menyuan\RelocatedAftershocks\FanLiping\Proj2Fault\seis_reloc_proj.gmt', sep=r'\s+')
-    statobj.StatHistInSide(None, data.dep.values, bins=15, side='right')
+    statobj.StatInSide(depth=data.dep.values, bins=15, side='right', statkind='hist', cutmethod='hist', outfile='stat_hist.gmt')
 
-    statobj.StatCurveInSide(np.ones_like(data.mag.values), data.dep.values, zrange=None, zinterval=1.5, method='sum')
+    statobj.StatInSide(slip='strikeslip', bins=15, side='right', method='mean', statkind='curve', zinterval=1.5,
+                       cutmethod='pdcut', outfile='curve_statInSide.gmt')
 
-    statobj.StatHistinTop(np.ones_like(data.mag.values), data[['lon', 'lat']].values, bins=15, hinterval=2, side='top', depth_eps=0.25, vert_angle=0,
-                      zoffset=0.2, hight_scale=4.0, outfile='stat_histInTop_test.gmt', method='sum')
+    # Statistics in Top
+    statobj.StatinTop(slip='strikeslip_top', bins=15, hinterval=1.0, depth_eps=0.25, vert_angle=0,
+                      zoffset=0.2, height_scale=4.0, outfile='stat_histInTop.gmt', method='sum', cutmethod='pdcut')
 
     # 现场勘查
     slp_file = r'c:\Users\kfhe\Desktop\Menyuan_Surface\surfslip_panjiawei.csv'
     slp_pan = pd.read_csv(slp_file, sep=r'\s+')
-
-    statobj.StatCurveinTop(slp_pan.slip.values, slp_pan[['lon', 'lat']].values, side='top', zrange=None, method='mean', depth_eps=0.25, 
-                      zoffset=0.2, hight_scale=1.0, vert_angle=0, outfile='curve_statInTop.gmt', outkind='curve')
-    statobj.StatCurveinTop(slp_pan.slip.values, slp_pan.iloc[:, 2:].values, side='top', zrange=None, method='mean', depth_eps=0.25, 
-                      zoffset=0.2, hight_scale=1.0, vert_angle=0, outfile='bar_statInTop.gmt', outkind='bar')
+    statobj.StatinTop(slp_pan.slip.values, slp_pan.iloc[:, 2:].values, method='mean', depth_eps=0.25, cutmethod=None, doStat=False,
+                      zoffset=0.2, height_scale=4.0, vert_angle=0, outfile='bar_statInTop.gmt', statkind='bar')
