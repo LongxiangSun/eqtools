@@ -592,6 +592,7 @@ class StatisticsInFault(csiSourceInv):
 
         # 获得对应走向角和倾角
         ind_angle = np.searchsorted(top_edge_centers[:, 0], x_angle)
+        ind_angle[ind_angle>=strikes.shape[0]] = int(strikes.shape[0]-1)
         strikes = strikes[ind_angle]
         dips = dips[ind_angle]
 
