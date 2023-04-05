@@ -450,8 +450,9 @@ class StatisticsInFault(csiSourceInv):
         # All Done
         return value, depth
     
-    def _statinTop(self, value=None, lonlat=None, hinterval=2.0, slip='total_top', statkind='curve', height_scale=1.0, doStat=True,
-                  bins=15, method='mean', cutmethod='pdcut', discretizeInterval=0.2, depth_eps=0.25, vert_angle=None):
+    def _statinTop(self, value=None, lonlat=None, hinterval=2.0, slip='total_top', statkind='curve', 
+                   height_scale=1.0, doStat=True, bins=15, method='mean', cutmethod='pdcut', 
+                   discretizeInterval=0.2, depth_eps=0.25, vert_angle=None, KeepOriginCoord=True):
         '''
         所有的数据沿断层的统计
         statkind  : curve, hist, bar
@@ -520,8 +521,8 @@ class StatisticsInFault(csiSourceInv):
 
         # Proj Input coordinate
         ## 距离索引将输入数据投影到断层迹线上，给出对应索引值
-        x, y = fault.ll2xy(lonlat[:, 0], lonlat[:, 1])
-        xy = np.vstack((x, y)).T
+        xorg, yorg = fault.ll2xy(lonlat[:, 0], lonlat[:, 1])
+        xy = np.vstack((xorg, yorg)).T
         xy_trace = np.vstack((fault.xi, fault.yi)).T
         dist_mat = np.linalg.norm(xy_trace[None, :, :] - xy[:, None,:], axis=2)
         ind_dist = np.argsort(dist_mat, axis=1)[:, 0]
@@ -534,7 +535,10 @@ class StatisticsInFault(csiSourceInv):
 
         # 不做统计，直接按原始数据输出
         if not doStat:
-            xi, yi = fault.xi[ind_dist], fault.yi[ind_dist]
+            if KeepOriginCoord:
+                xi, yi = xorg, yorg
+            else:
+                xi, yi = fault.xi[ind_dist], fault.yi[ind_dist]
             zi = np.ones_like(xi)*fault.top
             # 用于提取走向角和倾角的判断坐标，即点中心坐标
             value = value/value.max()
