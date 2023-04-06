@@ -355,7 +355,7 @@ class StatisticsInFault(csiSourceInv):
         value, depth = self._statinSide(value=value, depth=depth, slip=slip, side=side, method=method,
                         statkind=statkind, cutmethod=cutmethod, zinterval=zinterval, bins=bins)
 
-        fit = interp1d(z, x1)
+        fit = interp1d(z, x1, fill_value="extrapolate")
         z_pred = depth
         x_pred = fit(z_pred)
         y_pred = np.ones_like(x_pred)*y1.mean()
