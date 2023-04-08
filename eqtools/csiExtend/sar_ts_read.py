@@ -112,7 +112,7 @@ class mysarts(csiinsartimeseries):
         return self.setTimeSeries(sar_ts)
 
     def read_from_h5file(self, dirname=None, h5filedict=None, factor=1.0, mask=True, 
-                         downssample=1, shadowMask=False, keeprowtimeseries=True):
+                         downsample=1, shadowMask=False, keeprowtimeseries=True):
         '''
         
         Args      :
