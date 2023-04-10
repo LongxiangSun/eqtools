@@ -133,7 +133,7 @@ class mysarts(csiinsartimeseries):
         # All Done
         return
     
-    def cutrawts(self):
+    def cutrawts(self, lonrange, latrange):
         #----------根据预设数据范围提取数据--------------#
         cornerlon = self.rawcoordrange[0]
         cornerlat = self.rawcoordrange[-1]
